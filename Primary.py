@@ -6,7 +6,7 @@ import subprocess
 import logging
 import datetime 
 import openpyxl as Py_Excel
-
+import time
 
 
 
@@ -222,7 +222,7 @@ def Client_cmd_execution(Test_Bandwidth):
     global Iperf_Exe_Terminal
 
     # Below command for Cient communication
-    Client_cmd = [Iperf_tool_path, '-c', DUT_IP, '-u', '-b', Test_Bandwidth, '-i', '1', '-t', '60']
+    Client_cmd = [Iperf_tool_path, '-c', DUT_IP, '-u', '-b', Test_Bandwidth, '-i', '1', '-t', '30']
     Default_iteration=1
     
     while True :    
@@ -259,6 +259,7 @@ def Client_cmd_execution(Test_Bandwidth):
         
         
         print(" Stop_test recieved ",Stop_test)
+        time.sleep(3)
         if Stop_test:
             
             logging.info('Confirmation Recieved to Stop the test ')
@@ -275,8 +276,11 @@ def Client_cmd_execution(Test_Bandwidth):
 def Tx_test_Executor(wifi,Server_cmd,Min_Bandwidth,Max_Bandwidth):
         
       
-        
+        global Throughput_test_Datagrams  
+
         Iterator = Min_Bandwidth
+        Throughput_test_Datagrams=[]
+        DefaultTXDatagrams = ["None","None","None"]
 
         while Min_Bandwidth <= Max_Bandwidth: 
             
@@ -290,7 +294,7 @@ def Tx_test_Executor(wifi,Server_cmd,Min_Bandwidth,Max_Bandwidth):
         
             # Sendind client command to Secondary system to start TX test    
 
-            conn.send(f'iperf -c {Ipv4_adress} -u -b {Min_Bandwidth}M -i 1 -t 60 '.encode())
+            conn.send(f'iperf -c {Ipv4_adress} -u -b {Min_Bandwidth}M -i 1 -t 30 '.encode())
             logging.info(f'Sendind client command to Secondary system to start {Min_Bandwidth}M Bandwidth TX test')
                    
             Current_Test_Bandwidths.append(Min_Bandwidth)
@@ -326,12 +330,30 @@ def Tx_test_Executor(wifi,Server_cmd,Min_Bandwidth,Max_Bandwidth):
                     logging.info('Reading iperf_output text file to retriew Iperf terminal logs' )
                     # Read the contents of the output file
                     with open("iperf_output.txt", "r") as file:
-                        output = file.read()
-                        logging.info(output)
+                        output = file.readlines()
 
-                    # Print the output
-                    print("output",output)
+                        for line in output:
+
+                            logging.info(line)
+                            # Print the output
+                            print(line)
+                            if "0.0-30.0" in line:
+
+                                Splitdata=line.split("  ")
+                                print(Splitdata[7])
+
+                                Throughput_test_Datagrams.append[Splitdata(7)]
+
                     logging.info('Reading logs completed')
+
+                    if Throughput_test_Datagrams==[] :
+    
+                        Throughput_test_Datagrams.extend(DefaultTXDatagrams)
+
+                    elif len(Throughput_test_Datagrams) <3 and len(Throughput_test_Datagrams) >=1:
+                        Throughput_test_Datagrams.insert(0,"None")
+
+                    
                     logging.info("Exiting From TX Test Function")
                     return False
             
@@ -347,12 +369,31 @@ def Tx_test_Executor(wifi,Server_cmd,Min_Bandwidth,Max_Bandwidth):
             logging.info('closing output file')
 
             with open("iperf_output.txt", "r") as file:
-                output = file.read()
-                logging.info(output)
+                output = file.readlines()
 
-            # Print the output
-            print("output",output)
+                for line in output:
+
+                    logging.info(line)
+                    # Print the output
+                    print(line)
+                    if "0.0-30.0" in line:
+
+                        Splitdata=line.split("  ")
+                        print(Splitdata[7])
+
+                        Throughput_test_Datagrams.append[Splitdata(7)]
+
+
             logging.info('Reading logs completed')
+
+            if Throughput_test_Datagrams==[] :
+    
+                Throughput_test_Datagrams.extend(DefaultTXDatagrams)
+
+            elif len(Throughput_test_Datagrams) <3 and len(Throughput_test_Datagrams) >=1:
+                Throughput_test_Datagrams.insert(0,"None")
+    
+
             
         logging.info("Exiting From TX Test Executor function")
 
@@ -375,6 +416,7 @@ def Rx_Testing(wifi):
     Recieved_confirmation=conn.recv(1024) 
 
     Recieved_confirmation = bool(int.from_bytes(Recieved_confirmation, byteorder='big'))
+    print(f'Recieved_confirmation {Recieved_confirmation}')
     if Recieved_confirmation:
         print("\n Server Started in DUT ")
         logging.info('Confirmation Recieved from Secondary of Server Started on DUT')
@@ -573,8 +615,10 @@ def create_excel_table(Test_data,CurrentTesttype):
     
     # Write the headers
     headers = ['Connection Type','Mode of Connection', 'Antenna Type', 'Distance', 'RSSI',
-               'Bandwidth', 'Throughput test 1 (in Mbps)',
-               'Throughput test 2 (in Mbps)', 'Throughput test 3 (in Mbps)',
+               'Bandwidth', 
+               'Throughput test 1 (in Mbps)','Throughput test 1 Lost/Total Datagrams',
+               'Throughput test 2 (in Mbps)','Throughput test 2 Lost/Total Datagrams',
+               'Throughput test 3 (in Mbps)','Throughput test 3 Lost/Total Datagrams',
                'Average Throughput (in Mbps)']
     
    
@@ -659,23 +703,23 @@ def create_excel_table(Test_data,CurrentTesttype):
             if "2.4Ghz" in Test_Name:
                 
                 if Row_num == 0:
-                    Throughput_test_1,Throughput_test_2,Throughput_test_3,Average_test = Test_Values
+                    Throughput_test_1,Throughput_test_1_Datagrams,Throughput_test_2,Throughput_test_2_Datagrams,Throughput_test_3,Throughput_test_3_Datagrams,Average_test = Test_Values
             
-                    print(['2.4Ghz','UDP', 'PCBA', Distance+ ' mtr', RSSI_Values["2.4Ghz Before Test"],float(Current_Test_Bandwidths[Current_Test_Bandwidths_value_index]),Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
-                    rx_sheet.append(['2.4Ghz','UDP', 'PCBA', Distance +' mtr', "Before Test "+RSSI_Values["2.4Ghz Before Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
+                    print(['2.4Ghz','UDP', 'PCBA', Distance +' mtr', "Before Test "+RSSI_Values["2.4Ghz Before Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_1_Datagrams,Throughput_test_2,Throughput_test_2_Datagrams,Throughput_test_3,Throughput_test_3_Datagrams,Average_test])
+                    rx_sheet.append(['2.4Ghz','UDP', 'PCBA', Distance +' mtr', "Before Test "+RSSI_Values["2.4Ghz Before Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_1_Datagrams,Throughput_test_2,Throughput_test_2_Datagrams,Throughput_test_3,Throughput_test_3_Datagrams,Average_test])
                     Current_Test_Bandwidths_value_index  += 1
                 elif Row_num == 1:
-                    Throughput_test_1,Throughput_test_2,Throughput_test_3,Average_test = Test_Values
+                    Throughput_test_1,Throughput_test_1_Datagrams,Throughput_test_2,Throughput_test_2_Datagrams,Throughput_test_3,Throughput_test_3_Datagrams,Average_test = Test_Values
             
-                    print(['','', '', '', RSSI_Values["2.4Ghz After Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
-                    rx_sheet.append(['','', '', '', "After Test "+RSSI_Values["2.4Ghz After Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
+                    print(['','', '', '', RSSI_Values["2.4Ghz After Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_1_Datagrams,Throughput_test_2,Throughput_test_2_Datagrams,Throughput_test_3,Throughput_test_3_Datagrams,Average_test])
+                    rx_sheet.append(['','', '', '', "After Test "+RSSI_Values["2.4Ghz After Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_1_Datagrams,Throughput_test_2,Throughput_test_2_Datagrams,Throughput_test_3,Throughput_test_3_Datagrams,Average_test])
                     Current_Test_Bandwidths_value_index  += 1
                     
                 else:
-                    Throughput_test_1,Throughput_test_2,Throughput_test_3,Average_test = Test_Values
+                    Throughput_test_1,Throughput_test_1_Datagrams,Throughput_test_2,Throughput_test_2_Datagrams,Throughput_test_3,Throughput_test_3_Datagrams,Average_test = Test_Values
             
-                    print(['','', '', '', '',Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
-                    rx_sheet.append(['','', '', '', '',Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
+                    print(['','', '', '', '',Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_1_Datagrams,Throughput_test_2,Throughput_test_2_Datagrams,Throughput_test_3,Throughput_test_3_Datagrams,Average_test])
+                    rx_sheet.append(['','', '', '', '',Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_1_Datagrams,Throughput_test_2,Throughput_test_2_Datagrams,Throughput_test_3,Throughput_test_3_Datagrams,Average_test])
                     Current_Test_Bandwidths_value_index  += 1
                     
                         
@@ -690,20 +734,20 @@ def create_excel_table(Test_data,CurrentTesttype):
                     rx_sheet.append([])
                     Throughput_test_1,Throughput_test_2,Throughput_test_3,Average_test = Test_Values
             
-                    print(['5Ghz','UDP', 'PCBA', Distance+' mtr', RSSI_Values["5Ghz Before Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
-                    rx_sheet.append(['5Ghz','UDP', 'PCBA', Distance +' mtr', "Before Test "+RSSI_Values["5Ghz Before Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
+                    print(['5Ghz','UDP', 'PCBA', Distance+' mtr', RSSI_Values["5Ghz Before Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_1_Datagrams,Throughput_test_2,Throughput_test_2_Datagrams,Throughput_test_3,Throughput_test_3_Datagrams,Average_test])
+                    rx_sheet.append(['5Ghz','UDP', 'PCBA', Distance +' mtr', "Before Test "+RSSI_Values["5Ghz Before Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_1_Datagrams,Throughput_test_2,Throughput_test_2_Datagrams,Throughput_test_3,Throughput_test_3_Datagrams,Average_test])
                     Current_Test_Bandwidths_value_index  += 1
                 elif Row_num == 1:
                     Throughput_test_1,Throughput_test_2,Throughput_test_3,Average_test = Test_Values
             
-                    print(['','', '', '', RSSI_Values["5Ghz After Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
-                    rx_sheet.append(['','', '', '', "After Test "+RSSI_Values["2.4Ghz After Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
+                    print(['','', '', '', RSSI_Values["5Ghz After Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_1_Datagrams,Throughput_test_2,Throughput_test_2_Datagrams,Throughput_test_3,Throughput_test_3_Datagrams,Average_test])
+                    rx_sheet.append(['','', '', '', "After Test "+RSSI_Values["2.4Ghz After Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_1_Datagrams,Throughput_test_2,Throughput_test_2_Datagrams,Throughput_test_3,Throughput_test_3_Datagrams,Average_test])
                     Current_Test_Bandwidths_value_index  += 1
                 else:
                     Throughput_test_1,Throughput_test_2,Throughput_test_3,Average_test = Test_Values
             
-                    print(['','', '', '', '',Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
-                    rx_sheet.append(['','', '', '', '',Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
+                    print(['','', '', '', '',Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_1_Datagrams,Throughput_test_2,Throughput_test_2_Datagrams,Throughput_test_3,Throughput_test_3_Datagrams,Average_test])
+                    rx_sheet.append(['','', '', '', '',Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_1_Datagrams,Throughput_test_2,Throughput_test_2_Datagrams,Throughput_test_3,Throughput_test_3_Datagrams,Average_test])
                     Current_Test_Bandwidths_value_index  += 1
                 if Row_num!=4:
                     Row_num+=1
@@ -721,21 +765,21 @@ def create_excel_table(Test_data,CurrentTesttype):
                 if Row_num == 0:
                     Throughput_test_1,Throughput_test_2,Throughput_test_3,Average_test = Test_Values
             
-                    print(['2.4Ghz','UDP', 'PCBA', Distance+' mtr', RSSI_Values["2.4Ghz Before Test"],float(Current_Test_Bandwidths[Current_Test_Bandwidths_value_index]),Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
-                    tx_sheet.append(['2.4Ghz','UDP', 'PCBA', Distance+' mtr', "Before Test "+RSSI_Values["2.4Ghz Before Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
+                    print(['2.4Ghz','UDP', 'PCBA', Distance+' mtr', RSSI_Values["2.4Ghz Before Test"],float(Current_Test_Bandwidths[Current_Test_Bandwidths_value_index]),Throughput_test_1,Throughput_test_Datagrams[0],Throughput_test_2,Throughput_test_Datagrams[1],Throughput_test_3,Throughput_test_Datagrams[2],Average_test])
+                    tx_sheet.append(['2.4Ghz','UDP', 'PCBA', Distance+' mtr', "Before Test "+RSSI_Values["2.4Ghz Before Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_Datagrams[0],Throughput_test_2,Throughput_test_Datagrams[1],Throughput_test_3,Throughput_test_Datagrams[2],Average_test])
                     Current_Test_Bandwidths_value_index  += 1
                 elif Row_num == 1:
                     Throughput_test_1,Throughput_test_2,Throughput_test_3,Average_test = Test_Values
             
-                    print(['','', '', '', RSSI_Values["2.4Ghz After Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
-                    tx_sheet.append(['','', '', '', "After Test "+RSSI_Values["2.4Ghz After Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
+                    print(['','', '', '', RSSI_Values["2.4Ghz After Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_Datagrams[0],Throughput_test_2,Throughput_test_Datagrams[1],Throughput_test_3,Throughput_test_Datagrams[2],Average_test])
+                    tx_sheet.append(['','', '', '', "After Test "+RSSI_Values["2.4Ghz After Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_Datagrams[0],Throughput_test_2,Throughput_test_Datagrams[1],Throughput_test_3,Throughput_test_Datagrams[2],Average_test])
                     Current_Test_Bandwidths_value_index  += 1
                     
                 else:
                     Throughput_test_1,Throughput_test_2,Throughput_test_3,Average_test = Test_Values
             
-                    print(['','', '', '', '',Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
-                    tx_sheet.append(['','', '', '', '',Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
+                    print(['','', '', '', '',Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_Datagrams[0],Throughput_test_2,Throughput_test_Datagrams[1],Throughput_test_3,Throughput_test_Datagrams[2],Average_test])
+                    tx_sheet.append(['','', '', '', '',Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_Datagrams[0],Throughput_test_2,Throughput_test_Datagrams[1],Throughput_test_3,Throughput_test_Datagrams[2],Average_test])
                     Current_Test_Bandwidths_value_index  += 1
                         
 
@@ -754,20 +798,20 @@ def create_excel_table(Test_data,CurrentTesttype):
                     tx_sheet.append([])
                     Throughput_test_1,Throughput_test_2,Throughput_test_3,Average_test = Test_Values
             
-                    print(['5Ghz','UDP', 'PCBA', Distance+' mtr', RSSI_Values["5Ghz Before Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
-                    tx_sheet.append(['5Ghz','UDP', 'PCBA', Distance+' mtr', "Before Test "+RSSI_Values["5Ghz Before Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
+                    print(['5Ghz','UDP', 'PCBA', Distance+' mtr', RSSI_Values["5Ghz Before Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_Datagrams[0],Throughput_test_2,Throughput_test_Datagrams[1],Throughput_test_3,Throughput_test_Datagrams[2],Average_test])
+                    tx_sheet.append(['5Ghz','UDP', 'PCBA', Distance+' mtr', "Before Test "+RSSI_Values["5Ghz Before Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_Datagrams[0],Throughput_test_2,Throughput_test_Datagrams[1],Throughput_test_3,Throughput_test_Datagrams[2],Average_test])
                     Current_Test_Bandwidths_value_index  += 1
                 elif Row_num == 1:
                     Throughput_test_1,Throughput_test_2,Throughput_test_3,Average_test = Test_Values
             
-                    print(['','', '', '', RSSI_Values["5Ghz After Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
-                    tx_sheet.append(['','', '', '', "After Test "+RSSI_Values["2.4Ghz After Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
+                    print(['','', '', '', RSSI_Values["5Ghz After Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_Datagrams[0],Throughput_test_2,Throughput_test_Datagrams[1],Throughput_test_3,Throughput_test_Datagrams[2],Average_test])
+                    tx_sheet.append(['','', '', '', "After Test "+RSSI_Values["2.4Ghz After Test"],Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_Datagrams[0],Throughput_test_2,Throughput_test_Datagrams[1],Throughput_test_3,Throughput_test_Datagrams[2],Average_test])
                     Current_Test_Bandwidths_value_index  += 1
                 else:
                     Throughput_test_1,Throughput_test_2,Throughput_test_3,Average_test = Test_Values
             
-                    print(['','', '', '', '',Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
-                    tx_sheet.append(['','', '', '', '',Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1.strip("Mbits"),Throughput_test_2.strip("Mbits"),Throughput_test_3.strip("Mbits"),Average_test.strip("Mbits") ])
+                    print(['','', '', '', '',Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_Datagrams[0],Throughput_test_2,Throughput_test_Datagrams[1],Throughput_test_3,Throughput_test_Datagrams[2],Average_test])
+                    tx_sheet.append(['','', '', '', '',Current_Test_Bandwidths[Current_Test_Bandwidths_value_index],Throughput_test_1,Throughput_test_Datagrams[0],Throughput_test_2,Throughput_test_Datagrams[1],Throughput_test_3,Throughput_test_Datagrams[2],Average_test])
                     Current_Test_Bandwidths_value_index  += 1
                 Row_num+=1
             
@@ -800,7 +844,7 @@ def Secondary_Logs_Reciever():
     for file_path in file_paths:
         # Receive the file size from the server
         file_size_str = conn.recv(16).decode().strip()
-        print("file_size_str",file_size_str)
+        print("Recieved file_size_str",file_size_str)
         # Convert the file size back to an integer
         file_size = int(file_size_str)
 

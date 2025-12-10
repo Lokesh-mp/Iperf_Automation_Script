@@ -387,6 +387,11 @@ def Network_configuration(re_checking,SSID_PWD,_2_4Ghz):
         logging.info(f"Inside Recheking process")
         while time.time() < end_time:
 
+            # Sending Ctrl+c command 
+            DUT_Ser.write(b'\x03\n')  
+
+            time.sleep(2)
+
             DUT_Ser.write('wpa_cli status\n'.encode("utf-8"))
 
             if DUT_Ser.in_waiting > 0:
@@ -463,7 +468,14 @@ def Network_configuration(re_checking,SSID_PWD,_2_4Ghz):
             enable_network 0    \n
             save config \n
     '''
-    DUT_Ser.write(Wifi_Config.encode("utf-8") )
+    
+
+    DUT_Ser.write(f"LUCI_local 125 {SSID},{PWD}\n".encode("utf-8") )
+    Decoded_data=DUT_Ser.readline().decode("utf-8", errors="ignore")
+
+    if "LUCI_local not found" in Decoded_data:
+        DUT_Ser.write(Wifi_Config.encode("utf-8") )
+
     logging.info(f"{Wifi_Config}\n command written to connect wifi")
 
   
@@ -478,6 +490,7 @@ def Network_configuration(re_checking,SSID_PWD,_2_4Ghz):
         # Sending Ctrl+c command 
         DUT_Ser.write(b'\x03\n')  
 
+        time.sleep(2)
         DUT_Ser.write('wpa_cli status\n'.encode("utf-8"))
 
         Decoded_data=DUT_Ser.readline().decode("utf-8", errors="ignore")
@@ -487,7 +500,7 @@ def Network_configuration(re_checking,SSID_PWD,_2_4Ghz):
         if DUT_Ser.in_waiting > 0:
 
             try:
-               
+                
 
                 logging.info(f"Wifi Config Page - {Decoded_data}")
 
@@ -549,8 +562,8 @@ def Testing():
 
 
     # Reading Serail for RSI Value
-    RSSI_Value =  Serial_Data_Reading(RSSI_Value_check=True,client_cmd = False,Received__Data=None)
     logging.info(f'Calling Serial_Data_Reading function to check RSSI Values')
+    RSSI_Value =  Serial_Data_Reading(RSSI_Value_check=True,client_cmd = False,Received__Data=None)
     Communication_Service.send(str(RSSI_Value).encode())
     logging.info(f'Sending RSSI Values')
 
@@ -561,9 +574,9 @@ def Testing():
    
         Received_Data = Communication_Service.recv(1024).decode()
 
-        logging.info(f'Received_Data ==> ",{Received_Data}')
+        print("Received_Data ",Received_Data)
+        logging.info(f"Received_Data in testing function == > {Received_Data}")
 
-        
         if 'iperf -s' in Received_Data:
 
              logging.info('Inside Server command')
@@ -571,7 +584,7 @@ def Testing():
 
             # if the test is RX then enter the server command in serial comm
              Server_communication (Received_Data)
-             print("Test_type ",Test_type)
+            #  print("Test_type ",Test_type)
              if  Test_type != "Full_Test":
 
                 logging.info('returning True from server if the Test is not Full type')
@@ -633,17 +646,20 @@ def Server_communication(Received__Data):
      
      global Current_Test_Bandwidth
 
+     DUT_Ser.flush()
     
-
      #  writing Server command in serial
      DUT_Ser.write(f"{Received__Data} \n".encode("utf-8") )
-     logging.info('writing Server command to start server')
-     
-     Decoded_data=DUT_Ser.read_until(b'Server listening').decode()
+     logging.info(f'writing {Received__Data} command to start server')
+     print((f'writing {Received__Data} command to start server'))
+
+     #Decoded_data=DUT_Ser.read_until(b'UDP buffer size').decode()
+     Decoded_data=DUT_Ser.readall().decode()
+
+     logging.info(Decoded_data)
+
     
-
-
-     if "Server listening" not in Decoded_data:
+     if "Server listening on UDP port" not in Decoded_data or "UDP buffer size" not in Decoded_data:
          # Sending confirmation
             Communication_Service.send(int(False).to_bytes(1, byteorder="big"))
             logging.info('Server not started and sending False command ')
@@ -761,15 +777,21 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
                 logging.info(f"RSSI Value check tries {tries}")
 
                 while True:
-                    start_time = time.time()
-                    end_time = start_time + 10
+                    
                     RSSI_Value_Found=False
 
                     # Sending Scan Command and waiting till it gets response from AP
-                    DUT_Ser.write(f"wpa_cli scan\nwpa_cli scan_results\n".encode("utf-8") )
-                    logging.info(f"wpa_cli scan wpa_cli scan_results command eneterd")
+                    DUT_Ser.write(f"wpa_cli scan\n".encode("utf-8") )
+                    logging.info(f"Wi-Fi Scan Initiated")
+                    time.sleep(10)
+                    DUT_Ser.write(f"wpa_cli scan_results\n".encode("utf-8") )
+
+                    start_time = time.time()
+                    end_time = start_time + 10
                     while time.time() < end_time:
+                          
                             if DUT_Ser.in_waiting > 0:
+                              
                                 try:
                                     Decoded_data=DUT_Ser.readline().decode("utf-8", errors="ignore")
                                     Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data}\n")
@@ -855,18 +877,24 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
                             
                             logging.info(f'Reading serial {Decoded_data}') 
                             print(Decoded_data)
+
+                            
+                            if Decoded_data== None:
+                                continue
                             
 
-                            if " datagrams received out-of-order" in Decoded_data or "PBytes" in Decoded_data or "(nan%)"in Decoded_data:
-                                    logging.info(f'Reading serial {Decoded_data}')
-                                    continue
+                            # if " datagrams received out-of-order" in Decoded_data or "PBytes" in Decoded_data or "(nan%)"in Decoded_data:
+                            #         logging.info(f'Reading serial {Decoded_data}')
+                            #         print("inside datagrams received out-of-order")
+                            #         continue
 
-
-                            elif "0.0-60.0 sec" in Decoded_data or " 0.00-61." in Decoded_data or " 0.00-59" in Decoded_data :
+                            #if "0.00-60" in Decoded_data or " 0.00-61." in Decoded_data or " 0.00-59" in Decoded_data :
+                            if " 0.00-30" in Decoded_data or " 0.0-30" in Decoded_data or " 0.00-31" in Decoded_data or " 0.0-31" in Decoded_data or " 0.00-29" in Decoded_data or " 0.0-29" in Decoded_data :
 
                                 if r"Mbits/sec" in Decoded_data or r"Kbits/sec" in Decoded_data:
                                 
-
+                                    print(" Inside if Mbits/sec in Decoded_data or Kbits/sec in Decoded_data")
+                                    logging.info(f'Inside if r"Mbits/sec" in Decoded_data or r"Kbits/sec" in Decoded_data: ')
                                 
                                     # Printing average data Found
                                     print("Average data found ", Decoded_data)
@@ -886,6 +914,7 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
 
                                     DUT_Ser.reset_input_buffer()
                                     DUT_Ser.reset_output_buffer()
+                                    time.sleep(2)
                                     
                                     iteration += 1
                                     logging.info(f" Test iteration increased")
@@ -894,7 +923,7 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
 
                                     # Send False command to rerun if iteration is lesser than or equal to 3 and it is RX test  
                                     if not client_cmd and len(Iteration_Output) <3:
-
+                                        
                                         Communication_Service.send(int(False).to_bytes(1, byteorder="big"))
                                         logging.info("Send False command to re run if iteration is lesser than or equal to 3 and it is RX test")
                                         break
@@ -906,7 +935,7 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
             
                                         break
 
-                                    elif   client_cmd and len(Iteration_Output) < 3 :
+                                    elif   client_cmd and len(Iteration_Output) <= 3 :
                                         
                                         break
 
@@ -917,8 +946,9 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
 
 
                             # Send False command to re run if the recieved data is running above 60 seconds
-                            elif  "61.0-62.0 sec" in Decoded_data or "62.0-63.0 sec" in Decoded_data:
-
+                            #elif  "1.0-62.0 sec" in Decoded_data or "62.0-63.0 sec" in Decoded_data:
+                            elif  "1.0-32.0 sec" in Decoded_data or "32.0-33.0 sec" in Decoded_data:
+                               # print(" Inside  1.0-32.0 sec ")
                                 if not client_cmd:
 
                                     DUT_Ser.write(b'\x03')
@@ -936,7 +966,7 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
                                     DUT_Ser.write(b'\x03')
                                     Send_client_request=True
                                     logging.info("stoping current execution and and re sending client request after test running above 60 seconds")
-                                    
+                                    print(" Inside  stoping current execution and and re sending client ")
                                     break
 
 
@@ -960,6 +990,7 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
                     else:
                         DUT_Ser.write(b'\x03')
                         logging.info("stoping current execution and and re sending client request after waiting 100 sec")
+                        print(" stoping current execution and and re sending client request after waiting 100 sec ")
                         Send_client_request=True
 
 
@@ -990,6 +1021,8 @@ def Result_Analyser(List_Data):
 
         Data_Found = re.search(Mbits, Output)
 
+        DataGrams=Output.split("   ")
+
         if Data_Found:
             
             found_string = Data_Found.group()
@@ -1002,6 +1035,10 @@ def Result_Analyser(List_Data):
 
             Iteration_Output.append(found_string)
             logging.info(' appending to Iteration_Output ')
+
+            Iteration_Output.append(DataGrams[2])
+            logging.info(' appending to Datagrams ')
+
 
         else:
 
@@ -1020,21 +1057,24 @@ def Result_Analyser(List_Data):
                 Iteration_Output.append(f'{int(Data[0])/1000} Mbits')
                 logging.info(f"Coverting Kbits data to Mbits and appending to Iteration_Output ")
 
+                Iteration_Output.append(DataGrams[2])
+                logging.info(' appending to Datagrams ')
+
 
      # Below Expression for calculating Average Data fo 3 iteration and taking only 2 decimal after 
 
     Average_Data = round(sum(float(Average_Data) for Average_Data in Average_Data )/3,2)
     logging.info(f"Calculating average data of the output iteartion ")
 
-    Iteration_Output.append(f'{Average_Data} Mbits')
+    Iteration_Output.append(Average_Data)
 
-    logging.info(f"Average_Data {Average_Data}")
+    logging.info(f"Average_Data {Average_Data} Mbits")
 
 
     print("Iteration_Output ",Iteration_Output) 
     logging.info(f"Iteration_Output {Iteration_Output}")
 
-    time.sleep(12)
+    time.sleep(5)
 
     # sending # iteration Data with Average Data
     Communication_Service.send(json.dumps(Iteration_Output).encode("utf-8"))
@@ -1093,11 +1133,16 @@ def Logs_Sender(Secondary_Script_log_filename,Device___log_filename):
         file_size = os.path.getsize(file_path)
         # Convert the file size to a string representation
         file_size_str = str(file_size)
+        Encoded_File_Size = file_size_str.zfill(16).encode()
+        
+        logging.info(f" Sent {file_path} file size {file_size_str}")
+
+        logging.info(f" Sent {file_path} file size Encoded {Encoded_File_Size}")
+
+        print(f" Sent {file_path} file size Encoded {Encoded_File_Size}")
 
         # Send the file size to the client, padded to a fixed length
-        Communication_Service.sendall(file_size_str.zfill(16).encode())
-
-        logging.info(f" Sent {file_path} file size {file_size_str}")
+        Communication_Service.sendall(Encoded_File_Size)
 
         # Open the file in binary mode
         with open(file_path, 'rb') as file:
