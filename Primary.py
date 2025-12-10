@@ -43,7 +43,7 @@ def Establishing_connection():
     print(f"\n\t Host IP Address >> {Ipv4_adress}\n")
     
     # Ipfer tool path
-    Iperf_tool_path = os.path.join(os.getcwd() , "Iperf_Tool\iperf.exe")
+    Iperf_tool_path = os.path.join(os.getcwd() , r"Iperf_Tool\iperf.exe")
     
     # Create Script_Logs Folder if not present
     if not os.path.exists("Logs"):
@@ -88,7 +88,7 @@ def Establishing_connection():
     try:
         logging.basicConfig(filename=f'Logs/Primary {DUT_type} {Test_type} {Current_time}.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
     except:
-        print("\Logs Directory not found to insert Log file\n")
+        print("\n Logs Directory not found to insert Log file\n")
     # Storing Test Details
     logging.info(f'Connected by {addr} Device.')
     

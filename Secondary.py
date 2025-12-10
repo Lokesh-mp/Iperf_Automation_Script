@@ -245,7 +245,7 @@ def User_Input_Handler():
 
     except:
 
-        print("\Logs Directory not found to insert Log file\n")
+        print("\nLogs Directory not found to insert Log file\n")
 
 
     logging.info(f' {Com_Port} Com Port Selected.')
@@ -480,12 +480,14 @@ def Network_configuration(re_checking,SSID_PWD,_2_4Ghz):
 
         DUT_Ser.write('wpa_cli status\n'.encode("utf-8"))
 
+        Decoded_data=DUT_Ser.readline().decode("utf-8", errors="ignore")
+                
+        Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data}\n")
+
         if DUT_Ser.in_waiting > 0:
 
             try:
-                Decoded_data=DUT_Ser.readline().decode("utf-8", errors="ignore")
-                
-                Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data}\n")
+               
 
                 logging.info(f"Wifi Config Page - {Decoded_data}")
 
@@ -860,9 +862,9 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
                                     continue
 
 
-                            elif " 0.00-60." in Decoded_data or " 0.00-61." in Decoded_data or " 0.00-59" in Decoded_data :
+                            elif "0.0-60.0 sec" in Decoded_data or " 0.00-61." in Decoded_data or " 0.00-59" in Decoded_data :
 
-                                if "Mbits" in Decoded_data or "Kbits" in Decoded_data:
+                                if r"Mbits/sec" in Decoded_data or r"Kbits/sec" in Decoded_data:
                                 
 
                                 
@@ -915,7 +917,7 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
 
 
                             # Send False command to re run if the recieved data is running above 60 seconds
-                            elif  "61.00-62.00" in Decoded_data :
+                            elif  "61.0-62.0 sec" in Decoded_data or "62.0-63.0 sec" in Decoded_data:
 
                                 if not client_cmd:
 
@@ -1055,7 +1057,7 @@ def Result_Analyser(List_Data):
             logging.info(f"Current test is ran within 10 mtr and the result is not good")
             return False
     else :
-        if Average_Data < Current_Test_Bandwidth-105:
+        if Average_Data < Current_Test_Bandwidth-15:
             logging.info(f"Current test is ran above  10 mtr and the result is not good")
             return False
 
