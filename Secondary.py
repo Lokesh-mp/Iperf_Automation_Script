@@ -19,7 +19,7 @@ import serial.tools.list_ports as serial_ports
 def User_Input_Handler():
 
     global  DUT_Ser, Communication_Service, Bandwidth_Range, Test_type, Secondary_Script_log_filename
-    global Received_SSID_PWD, DUT_Type, Distance, __2_4Ghz__,Current_time 
+    global Received_SSID_PWD, DUT_Type, Distance, __2_4Ghz__,Current_time,Duration
 
  #------------------------------------------------------------------------------------------------------------------------------------
  #                                          | Serial COM Port Selecton |
@@ -36,6 +36,8 @@ def User_Input_Handler():
         os.makedirs("Logs")
     
     Current_time=datetime
+
+    
 
    
 
@@ -71,17 +73,42 @@ def User_Input_Handler():
 
         try:            
 
-            account =int(input("\nPlease select Device Type\n\n\t0  :> LS 10  \n\n\t1  :> LS 11   :-  " ))      
-            if account==0:
-                DUT_Type =  "LS10"
-                break
-            elif account==1:      
-                DUT_Type = "LS11"
-                break
+            DUT_Type =str(input("\nPlease Enter the Device / Module Name \n\t i>    LS10 \n\t ii>   LS11 \n>>  " ))      
+            
+            DUT_Type = DUT_Type.strip().upper()
+
+            if DUT_Type =="0" or  DUT_Type == "" :
+                
+                print('\n',6*' ',"Device Name should not be empty or Zero !",'\n')  
+
+            elif len(DUT_Type) >=6 or len(DUT_Type) <3:
+                
+                 print('\n',6*' ',"please select proper Device !",'\n')   
+    
             else :
-                print('\n',6*' ',"please select proper Device !",'\n')   
+
+                print(f"User enterd device name :{DUT_Type}")
+                break
+               
         except:
              pass
+        
+ #------------------------------------------------------------------------------------------------------------------------------------
+ #                                          | Enter the Test Duration |
+ #                                          |_________________________|  
+
+    while True:
+            
+        try :
+                Duration = int(input("\nPlease Enter the Test Duration in Seconds   :-  " ))      
+                if Duration < 10.0:
+                    print("\n\tDuration time should be more than 10 sec")
+                    pass
+                elif Duration >= 10.0:
+                    break
+        except:
+                pass      
+
 
  #------------------------------------------------------------------------------------------------------------------------------------
  #                                          | Enter the Distance |
@@ -253,6 +280,8 @@ def User_Input_Handler():
     logging.info(f' Current test type is {DUT_Type} .')
 
     logging.info(f' Current test Type is {Test_type} ')
+
+    logging.info(f' Test Duration is {Duration} ')
     
     logging.info(f' Selected  {"Basic Test 5 Mbits - 25 Mbis" if Bandwidth_Range == 1 else "Moderate Test 10 Mbits - 50 Mbis" if Bandwidth_Range == 2 else "Extreme Test 20 Mbits - 100 Mbis"} ')
 
@@ -268,35 +297,31 @@ def User_Input_Handler():
 
 def Establishinng_connection():
 
-    global time_format, Device_Logs,  Device_Logs_File_Name
+    global time_format, Device_Logs,  Device_Logs_File_Name,Test_Data
+
+    Test_Data=[]
+
+    
 
     time_format="%d_%b_%Y__%H-%M-%S"
 
     if not User_Input_Handler():
         return False
     
-    
-    
+    Test_Data.extend([Distance,DUT_Type,Test_type,Duration,Bandwidth_Range])
 
-    # Sendind Distance
-    Communication_Service.send(str(Distance).encode())
+
+    Communication_Service.send(json.dumps(Test_Data).encode("utf-8"))
+
     logging.info(f' Sent {Distance} mtr Distance Successfully ')
-    time.sleep(1)
-
-    # Sendind DUT Type
-    Communication_Service.send(DUT_Type.encode())
     logging.info(f' Sent {DUT_Type} Device type Successfully ')
-    time.sleep(1)
-    
-    # Sending test Type
-    Communication_Service.send(str(Test_type).encode())
     logging.info(f' Sent {Test_type} Test  type Successfully ')
-    time.sleep(1)
-
-    # Sending Band width size
-    Communication_Service.send(str(Bandwidth_Range).encode())
+    logging.info(f' Sent test {Duration} duration ')
     logging.info(f' Sent {Bandwidth_Range} Bandwidth Range Successfully ')
-    time.sleep(1)
+
+ 
+    
+
 
     Device_Logs_File_Name = f"./Logs/{DUT_Type} {Test_type} {Current_time.now().strftime(time_format)} Logs"
 
@@ -400,7 +425,7 @@ def Network_configuration(re_checking,SSID_PWD,_2_4Ghz):
                     Decoded_data=DUT_Ser.readline().decode("utf-8", errors="ignore")
                     
                     try:
-                        Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data}\n")
+                        Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data.encode("utf-8")}\n")
                     except:
                         pass
 
@@ -411,7 +436,7 @@ def Network_configuration(re_checking,SSID_PWD,_2_4Ghz):
                     
 
                     Decoded_data=DUT_Ser.read_until("uuid").decode("utf-8", errors="ignore")
-                    Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data}\n")
+                    Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data.encode("utf-8")}\n")
 
                     logging.info(f"reading all  - {Decoded_data}")
 
@@ -470,13 +495,16 @@ def Network_configuration(re_checking,SSID_PWD,_2_4Ghz):
     '''
     
 
-    DUT_Ser.write(f"LUCI_local 125 {SSID},{PWD}\n".encode("utf-8") )
+    DUT_Ser.write(f'LUCI_local 125 "{SSID}","{PWD}"\n'.encode("utf-8") )
+    logging.info(f'LUCI_local 125 "{SSID}","{PWD}"          command written to connect wifi')
+
     Decoded_data=DUT_Ser.readline().decode("utf-8", errors="ignore")
 
     if "LUCI_local not found" in Decoded_data:
         DUT_Ser.write(Wifi_Config.encode("utf-8") )
+        logging.info(f"{Wifi_Config}          command written to connect wifi")
 
-    logging.info(f"{Wifi_Config}\n command written to connect wifi")
+    
 
   
     time.sleep(3)
@@ -495,7 +523,7 @@ def Network_configuration(re_checking,SSID_PWD,_2_4Ghz):
 
         Decoded_data=DUT_Ser.readline().decode("utf-8", errors="ignore")
                 
-        Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data}\n")
+        Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data.encode("utf-8")}\n")
 
         if DUT_Ser.in_waiting > 0:
 
@@ -507,7 +535,7 @@ def Network_configuration(re_checking,SSID_PWD,_2_4Ghz):
                 
 
                 Decoded_data=DUT_Ser.read_until("uuid").decode("utf-8", errors="ignore")
-                Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data}\n")
+                Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data.encode("utf-8")}\n")
 
                 logging.info(f"reading all  - {Decoded_data}")
 
@@ -561,12 +589,6 @@ def Testing():
     global  Current_Test_Bandwidth
 
 
-    # Reading Serail for RSI Value
-    logging.info(f'Calling Serial_Data_Reading function to check RSSI Values')
-    RSSI_Value =  Serial_Data_Reading(RSSI_Value_check=True,client_cmd = False,Received__Data=None)
-    Communication_Service.send(str(RSSI_Value).encode())
-    logging.info(f'Sending RSSI Values')
-
     # verfiying test TX or RX
     while True:
 
@@ -588,9 +610,24 @@ def Testing():
              if  Test_type != "Full_Test":
 
                 logging.info('returning True from server if the Test is not Full type')
+                print(" Calling serial func to get rssi value")
+                RSSI_Value = Serial_Data_Reading(RSSI_Value_check=True,client_cmd = False,Received__Data=None)
+                logging.info('Calling serail function to get RSSI Value after 2.4Ghz test')
+                #sending RSSI value
+                Communication_Service.send(str(RSSI_Value).encode())
+                logging.info('Sent RSSI Value ')
 
                 print(" returning from testing")
                 return 
+             
+             else:
+                 
+                 RSSI_Value = Serial_Data_Reading(RSSI_Value_check=True,client_cmd = False,Received__Data=None)
+                 logging.info('Calling serail function to get RSSI Value after test')
+                 #sending RSSI Values
+                 Communication_Service.send(str(RSSI_Value).encode())
+                 logging.info('Sent RSSI Value ')
+            
                  
                                  
 
@@ -601,11 +638,20 @@ def Testing():
          
             logging.info('Inside Client command')
 
+
             #  Recieving Current Test Bandwidth
             Current_Test_Bandwidth = float(Communication_Service.recv(1024).decode()) 
-
-
             logging.info(f'current test bandwidth recieved {Current_Test_Bandwidth}')
+
+            if Current_Test_Bandwidth == 5.0 and Test_type == "TX_Test":
+
+                RSSI_Value = Serial_Data_Reading(RSSI_Value_check=True,client_cmd = False,Received__Data=None)
+                logging.info('Calling serail function to get RSSI Value after test')
+                #sending RSSI Values
+                Communication_Service.send(str(RSSI_Value).encode())
+                logging.info('Sent RSSI Value ')
+
+
 
             # enter client command in serial com
             Current_Iteration_Output = Serial_Data_Reading(RSSI_Value_check=False,client_cmd = True,Received__Data = Received_Data)
@@ -613,7 +659,7 @@ def Testing():
 
             # Calling Below Function to Analyse, take average and to send it to Primary for Each Test.
 
-            if not Result_Analyser(Current_Iteration_Output):
+            if not Result_Analyser(Current_Iteration_Output,False):
 
                 print("\nTX Test Result is Not Good ....!!!")
                 logging.info(f'TX Test Result is Not Good ....!!!')
@@ -621,6 +667,17 @@ def Testing():
                 # Sending False Command to stop test
                 Communication_Service.send(int(False).to_bytes(1, byteorder="big"))
                 logging.info('Sending False command to stop test')
+
+
+
+                # clearing Input Buffer
+                DUT_Ser.reset_input_buffer()
+                # Reading Serail for RSI Value
+                RSSI_Value = Serial_Data_Reading(RSSI_Value_check=True,client_cmd = False,Received__Data=None)
+                logging.info('Calling serail function to get RSSI Value after  test')
+                #sending RSSI Values
+                Communication_Service.send(str(RSSI_Value).encode())
+                logging.info('Sent  RSSI Value ')
 
                 return 
             
@@ -634,17 +691,25 @@ def Testing():
                  
               print("\nTest Ended sucessfully\n")
               logging.info('Ending Test Here')
+
               return 
             
         
-        else :
-            print("Received_Data ",Received_Data)
-            logging.info(f"Received_Data in testing function == > {Received_Data}")
+
        
 
 def Server_communication(Received__Data):
      
      global Current_Test_Bandwidth
+
+
+     # Reading Serail for RSI Value
+     logging.info(f'Calling Serial_Data_Reading function to check RSSI Values')
+     RSSI_Value =  Serial_Data_Reading(RSSI_Value_check=True,client_cmd = False,Received__Data=None)
+     Communication_Service.send(str(RSSI_Value).encode())
+     logging.info(f'Sending RSSI Values')
+
+
 
      DUT_Ser.flush()
     
@@ -654,7 +719,9 @@ def Server_communication(Received__Data):
      print((f'writing {Received__Data} command to start server'))
 
      #Decoded_data=DUT_Ser.read_until(b'UDP buffer size').decode()
-     Decoded_data=DUT_Ser.readall().decode()
+     
+         
+     Decoded_data=DUT_Ser.readall().decode("utf-8", errors="ignore")
 
      logging.info(Decoded_data)
 
@@ -688,7 +755,7 @@ def Server_communication(Received__Data):
 
      # Calling Below Function to Analyse, take average and to send it to Primary for Each Test.
 
-     if not Result_Analyser(Current_Iteration_Output):
+     if not Result_Analyser(Current_Iteration_Output,True):
          
          print(" RX Test Result is Not Good ....!!!")
          logging.info(f'RX Test Result is Not Good ....!!!')
@@ -718,7 +785,7 @@ def Server_communication(Received__Data):
         # Checking RX test End
         if  Received_Data:
             logging.info('Recieved confirmation to End RX Test') 
-            Communication_Service.send("RX Test Ended sucessfully".encode())
+            # Communication_Service.send("RX Test Ended sucessfully".encode())
 
             DUT_Ser.write(b'\x03')
 
@@ -736,7 +803,7 @@ def Server_communication(Received__Data):
 
              # Calling Below Function to Analyse, take average and to send it to Primary for Each Test.
 
-            if not Result_Analyser(Current_Iteration_Output):
+            if not Result_Analyser(Current_Iteration_Output,True):
                 print(" RX Test Result is Not Good ....!!!")
 
                 # Sending False Command to stop test
@@ -794,9 +861,17 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
                               
                                 try:
                                     Decoded_data=DUT_Ser.readline().decode("utf-8", errors="ignore")
-                                    Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data}\n")
+                                    
+                                    try:
+                                    
+                                        Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data.encode("utf-8")}\n")
+                                    except:
+                                        print("Decoded_data",Decoded_data)
+
+                                        pass
+                                        
                                     logging.info(f"RSSI - {Decoded_data}")
-                                    print(Decoded_data)
+                                    # print(Decoded_data)
 
                                     if SSID in Decoded_data:
                                         
@@ -808,7 +883,7 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
                                                                                             
 
                                                         logging.info(f"RSSI value found - {Decoded_data[2]}")
-                                                        print(f"{Decoded_data[2].strip()} RSSI value {Decoded_data[2]} ")
+                                                        print(f"RSSI value found - {Decoded_data[2]}")
                                                         RSSI_Value.append(Decoded_data[2])
                                                         logging.info(f"Current RSSI value added to RSSI Value list")
                                                         RSSI_Value_Found=True
@@ -855,7 +930,7 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
                 logging.info(f'{iteration} iteration output {Iteration_Output}')
 
                 if client_cmd and Send_client_request:
-                        
+                        time.sleep(10)
                         #  writing client  command in serial
                         DUT_Ser.write(f"{Received__Data} \n".encode("utf-8") )
                         logging.info('writing client command ') 
@@ -873,7 +948,7 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
                         try:
                             
                             Decoded_data = DUT_Ser.readline().decode("utf-8", errors="ignore")
-                            Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data}\n")
+                            Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data.encode("utf-8")}\n")
                             
                             logging.info(f'Reading serial {Decoded_data}') 
                             print(Decoded_data)
@@ -883,13 +958,10 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
                                 continue
                             
 
-                            # if " datagrams received out-of-order" in Decoded_data or "PBytes" in Decoded_data or "(nan%)"in Decoded_data:
-                            #         logging.info(f'Reading serial {Decoded_data}')
-                            #         print("inside datagrams received out-of-order")
-                            #         continue
-
+                          
                             #if "0.00-60" in Decoded_data or " 0.00-61." in Decoded_data or " 0.00-59" in Decoded_data :
-                            if " 0.00-30" in Decoded_data or " 0.0-30" in Decoded_data or " 0.00-31" in Decoded_data or " 0.0-31" in Decoded_data or " 0.00-29" in Decoded_data or " 0.0-29" in Decoded_data :
+                            
+                            if f" 0.00-{Duration}" in Decoded_data or f" 0.0-{Duration}" in Decoded_data or f" 0.00-{Duration+1}" in Decoded_data or f" 0.0-{Duration+1}" in Decoded_data or f" 0.00-{Duration-1}" in Decoded_data or f" 0.0-{Duration-1}" in Decoded_data :
 
                                 if r"Mbits/sec" in Decoded_data or r"Kbits/sec" in Decoded_data:
                                 
@@ -911,10 +983,11 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
                                         logging.info(f"TX {iteration} iteration Completed")
                                         Send_client_request=True
                                         logging.info(f"Send_client_request made it true'")
+                                        
 
                                     DUT_Ser.reset_input_buffer()
                                     DUT_Ser.reset_output_buffer()
-                                    time.sleep(2)
+                                    time.sleep(5)
                                     
                                     iteration += 1
                                     logging.info(f" Test iteration increased")
@@ -947,7 +1020,7 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
 
                             # Send False command to re run if the recieved data is running above 60 seconds
                             #elif  "1.0-62.0 sec" in Decoded_data or "62.0-63.0 sec" in Decoded_data:
-                            elif  "1.0-32.0 sec" in Decoded_data or "32.0-33.0 sec" in Decoded_data:
+                            elif  f"1.0-{Duration+2}.0 sec" in Decoded_data or f"{Duration+2}.0-{Duration+3}.0 sec" in Decoded_data:
                                # print(" Inside  1.0-32.0 sec ")
                                 if not client_cmd:
 
@@ -1003,7 +1076,7 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
 
 
                 
-def Result_Analyser(List_Data):
+def Result_Analyser(List_Data,Read_datagrams):
 
     Iteration_Output = []
 
@@ -1015,13 +1088,17 @@ def Result_Analyser(List_Data):
 
     # Search for Kbits Data
     kbits = r"\d+\sKbits" 
+
+    DataGrams_Pattern_1 =  r'\d+/\s+\d+ \(\d+%\)'
+    DataGrams_Pattern_2 =  r'\d+/\s+\d+ \(\d+\.\d+%\)'
+    DataGrams_Pattern_3 =  r'\d+/+\d+ \(\d+%\)'
+    DataGrams_Pattern_4 =  r'\d+/+\d+ \(\d+\.\d+%\)'
  
 
     for Output in List_Data:
 
         Data_Found = re.search(Mbits, Output)
 
-        DataGrams=Output.split("   ")
 
         if Data_Found:
             
@@ -1033,11 +1110,49 @@ def Result_Analyser(List_Data):
 
             Average_Data.append(Data[0])
 
-            Iteration_Output.append(found_string)
+            Iteration_Output.append(Data[0])
             logging.info(' appending to Iteration_Output ')
 
-            Iteration_Output.append(DataGrams[2])
-            logging.info(' appending to Datagrams ')
+
+            if Read_datagrams:
+
+                Datagram_found = re.search(DataGrams_Pattern_1, Output)
+
+        
+
+                if Datagram_found :
+
+                    #DataGrams=Datagram_found.groups()
+                    print(Datagram_found[0])
+
+                    Iteration_Output.append(Datagram_found[0])
+
+
+                elif re.search(DataGrams_Pattern_2, Output) :
+
+                    Datagram_found=re.search(DataGrams_Pattern_2, Output)
+
+                    print(Datagram_found[0])
+                    Iteration_Output.append(Datagram_found[0])
+
+                elif re.search(DataGrams_Pattern_3, Output) :
+
+                    Datagram_found=re.search(DataGrams_Pattern_3, Output)
+
+                    print(Datagram_found[0])
+                    Iteration_Output.append(Datagram_found[0]) 
+
+
+                elif re.search(DataGrams_Pattern_4, Output) :
+
+                    Datagram_found=re.search(DataGrams_Pattern_4, Output)
+
+                    print(Datagram_found[0])
+                    Iteration_Output.append(Datagram_found[0])
+
+                  
+                else:
+                        Iteration_Output.append("None")
 
 
         else:
@@ -1052,15 +1167,51 @@ def Result_Analyser(List_Data):
 
                 Data = found_string.split(" ")
 
-                Average_Data.append(int(Data[0])/1000)
+                Average_Data.append(float(Data[0])/1000)
 
-                Iteration_Output.append(f'{int(Data[0])/1000} Mbits')
+                Iteration_Output.append(f'{float(Data[0])/1000}')
                 logging.info(f"Coverting Kbits data to Mbits and appending to Iteration_Output ")
 
-                Iteration_Output.append(DataGrams[2])
-                logging.info(' appending to Datagrams ')
+                if Read_datagrams:
+
+                    Datagram_found = re.search(DataGrams_Pattern_1, Output)
+
+            
+
+                    if Datagram_found :
+
+                        #DataGrams=Datagram_found.groups()
+                        print(Datagram_found[0])
+
+                        Iteration_Output.append(Datagram_found[0])
 
 
+                    elif re.search(DataGrams_Pattern_2, Output) :
+
+                        Datagram_found=re.search(DataGrams_Pattern_2, Output)
+
+                        print(Datagram_found[0])
+                        Iteration_Output.append(Datagram_found[0])
+
+                    elif re.search(DataGrams_Pattern_3, Output) :
+
+                        Datagram_found=re.search(DataGrams_Pattern_3, Output)
+
+                        print(Datagram_found[0])
+                        Iteration_Output.append(Datagram_found[0]) 
+
+
+                    elif re.search(DataGrams_Pattern_4, Output) :
+
+                        Datagram_found=re.search(DataGrams_Pattern_4, Output)
+
+                        print(Datagram_found[0])
+                        Iteration_Output.append(Datagram_found[0])
+
+                    
+                    else:
+                            Iteration_Output.append("None")
+                        
      # Below Expression for calculating Average Data fo 3 iteration and taking only 2 decimal after 
 
     Average_Data = round(sum(float(Average_Data) for Average_Data in Average_Data )/3,2)
@@ -1175,12 +1326,7 @@ def main():
         DUT_Ser.reset_input_buffer()
         # Reading Serail for RSI Value
 
-        print(" Calling serial func to get rssi value")
-        RSSI_Value = Serial_Data_Reading(RSSI_Value_check=True,client_cmd = False,Received__Data=None)
-        logging.info('Calling serail function to get RSSI Value after 2.4Ghz test')
-        #sending RSSI value
-        Communication_Service.send(str(RSSI_Value).encode())
-        logging.info('Sent 2.4Ghz RSSI Value ')
+        
         
 
         #   5 Ghz Test  //////////////////////////////////////////////////////////////////////////////////////
