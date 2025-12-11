@@ -943,8 +943,6 @@ class Test_Drivers(Data_Saver):
             Default_iteration +=1
     
 
-
-
 class Execution(Test_Drivers):
             
     def Run_Iperftool(self,wifi):
@@ -999,8 +997,6 @@ class Execution(Test_Drivers):
                 logging.info(f"[Run_Iperftool] {wifi} Tx Test Result is Not Good ")
                 return  False
                                         
-                 
-    
 
 
 # Execution Starts Here  
@@ -1048,10 +1044,7 @@ def main():
                 logging.info('[main] Established connection Closed Sucessfully')
                 
                 return False
-
-           
-        
-        
+       
         else:
             iPerf.Secondary_Logs_Reciever()
 
@@ -1060,10 +1053,7 @@ def main():
             logging.info('[main] Established connection Closed Sucessfully')
             
             return False        
-                
-
-                    
-                                
+                               
     else:
         print("Failed to Establish Connection  ")
         logging.info('[main] Failed to Establish Connection')        
@@ -1074,41 +1064,7 @@ def main():
         iPerf.socket_conn.close()    
 
 
-
-
-
-
-
 if __name__ == "__main__":
 
     # Call the main function
     main()
-   
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

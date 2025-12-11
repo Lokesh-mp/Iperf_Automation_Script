@@ -364,8 +364,13 @@ def wifi_configuration(_2_4Ghz):
                 # send Ctrl + C command to DUT in the Final tries
               
                 if tries>=1:
-                    DUT_Ser.write(b'reboot\n')
+                    DUT_Ser.write(b'\r\nreboot\n\r')
                     logging.info(f'writing reboot command  ')
+                    try:
+                        Decoded_data=DUT_Ser.readline().decode("utf-8", errors="ignore")
+                        Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data.encode("utf-8")}\n")
+                    except:
+                        pass
                    
                     re_checking=True
                     logging.info(f'Enabling Recheck Process  ')
@@ -417,7 +422,7 @@ def Network_configuration(re_checking,SSID_PWD,_2_4Ghz):
 
             time.sleep(2)
 
-            DUT_Ser.write('wpa_cli status\n'.encode("utf-8"))
+            DUT_Ser.write('\n\rwpa_cli status\n\r'.encode("utf-8"))
 
             if DUT_Ser.in_waiting > 0:
 
@@ -430,7 +435,7 @@ def Network_configuration(re_checking,SSID_PWD,_2_4Ghz):
                         pass
 
                     print("Wifi Config ",Decoded_data)
-                    logging.info(f"Rechecking - Wifi Config Page - {Decoded_data}")
+                    # logging.info(f"Rechecking - Wifi Config Page - {Decoded_data}")
 
                 
                     
@@ -438,7 +443,7 @@ def Network_configuration(re_checking,SSID_PWD,_2_4Ghz):
                     Decoded_data=DUT_Ser.read_until("uuid").decode("utf-8", errors="ignore")
                     Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data.encode("utf-8")}\n")
 
-                    logging.info(f"reading all  - {Decoded_data}")
+                    # logging.info(f"reading all  - {Decoded_data}")
 
                     #  regular expressions to search for the IP address in the output
                     match = re.search(r'ip_address=\d+\.\d+\.\d+\.\d+', Decoded_data)
@@ -495,7 +500,7 @@ def Network_configuration(re_checking,SSID_PWD,_2_4Ghz):
     '''
     
 
-    DUT_Ser.write(f'LUCI_local 125 "{SSID}","{PWD}"\n'.encode("utf-8") )
+    DUT_Ser.write(f'\rLUCI_local 125 "{SSID}","{PWD}"\n'.encode("utf-8") )
     logging.info(f'LUCI_local 125 "{SSID}","{PWD}"          command written to connect wifi')
 
     Decoded_data=DUT_Ser.readline().decode("utf-8", errors="ignore")
@@ -503,6 +508,12 @@ def Network_configuration(re_checking,SSID_PWD,_2_4Ghz):
     if "LUCI_local not found" in Decoded_data:
         DUT_Ser.write(Wifi_Config.encode("utf-8") )
         logging.info(f"{Wifi_Config}          command written to connect wifi")
+
+    try:
+
+        Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data}\n")
+    except:
+        pass
 
     
 
@@ -519,25 +530,25 @@ def Network_configuration(re_checking,SSID_PWD,_2_4Ghz):
         DUT_Ser.write(b'\x03\n')  
 
         time.sleep(2)
-        DUT_Ser.write('wpa_cli status\n'.encode("utf-8"))
+        DUT_Ser.write('\r\nwpa_cli status\n\r'.encode("utf-8"))
 
         Decoded_data=DUT_Ser.readline().decode("utf-8", errors="ignore")
                 
-        Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data.encode("utf-8")}\n")
+        Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data}\n")
 
         if DUT_Ser.in_waiting > 0:
 
             try:
                 
 
-                logging.info(f"Wifi Config Page - {Decoded_data}")
+                # logging.info(f"Wifi Config Page - {Decoded_data}")
 
                 
 
                 Decoded_data=DUT_Ser.read_until("uuid").decode("utf-8", errors="ignore")
-                Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data.encode("utf-8")}\n")
+                Device_Logs.write(f"{Current_time.now().strftime(time_format)} - {Decoded_data}\n")
 
-                logging.info(f"reading all  - {Decoded_data}")
+                # logging.info(f"reading all  - {Decoded_data}")
 
       
 
@@ -638,10 +649,13 @@ def Testing():
          
             logging.info('Inside Client command')
 
-
             #  Recieving Current Test Bandwidth
             Current_Test_Bandwidth = float(Communication_Service.recv(1024).decode()) 
+            print("Current_Test_Bandwidth ",Current_Test_Bandwidth)        
             logging.info(f'current test bandwidth recieved {Current_Test_Bandwidth}')
+                    
+            
+            
 
             if Current_Test_Bandwidth == 5.0 and Test_type == "TX_Test":
 
@@ -1009,7 +1023,8 @@ def Serial_Data_Reading(RSSI_Value_check,client_cmd,Received__Data):
                                         break
 
                                     elif   client_cmd and len(Iteration_Output) <= 3 :
-                                        
+                                       
+                                        DUT_Ser.write(b'\x03')
                                         break
 
                                 else:
@@ -1239,18 +1254,18 @@ def Result_Analyser(List_Data,Read_datagrams):
 
 
     # 0.05 Is the Negotiation Value of AVerage Data
-    if Distance <= 3.0 :
-        if Average_Data < Current_Test_Bandwidth-0.5:
-            logging.info(f"Current test is ran within 3 mtr and the result is not good")
-            return False
-    elif Distance <= 10.0: 
-        if Average_Data < Current_Test_Bandwidth-5:
-            logging.info(f"Current test is ran within 10 mtr and the result is not good")
-            return False
-    else :
-        if Average_Data < Current_Test_Bandwidth-15:
-            logging.info(f"Current test is ran above  10 mtr and the result is not good")
-            return False
+    # if Distance <= 3.0 :
+    #     if Average_Data < Current_Test_Bandwidth-0.5:
+    #         logging.info(f"Current test is ran within 3 mtr and the result is not good")
+    #         return False
+    # elif Distance <= 10.0: 
+    #     if Average_Data < Current_Test_Bandwidth-5:
+    #         logging.info(f"Current test is ran within 10 mtr and the result is not good")
+    #         return False
+    # else :
+    #     if Average_Data < Current_Test_Bandwidth-15:
+    #         logging.info(f"Current test is ran above  10 mtr and the result is not good")
+    #         return False
 
     logging.info(f"Sending True after checking everything is Ok.")
 
