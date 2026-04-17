@@ -104,8 +104,8 @@ class iPerf2:
         print(f"Test iteration {self.Test_Duration} sec")
 
         # Bandwidth_Range storing
-        Bandwidth_Range = self.Recieved_Usr_Input[4]
-        self.Bandwidth_Range = "Basic Test 5 Mbits - 25 Mbis" if Bandwidth_Range == 1 else "Moderate Test 10 Mbits - 50 Mbis" if Bandwidth_Range == 2 else "Extreme Test 20 Mbits - 100 Mbis"
+        self.Bandwidth_Range = str(self.Recieved_Usr_Input[4])
+        #self.Bandwidth_Range = "Basic Test 5 Mbits - 25 Mbis" if Bandwidth_Range == 1 else "Moderate Test 10 Mbits - 50 Mbis" if Bandwidth_Range == 2 else "Extreme Test 20 Mbits - 100 Mbis"
         print(f"User Selected  {self.Bandwidth_Range}")
 
 
@@ -183,6 +183,7 @@ class Data_Saver(iPerf2):
         
         # Create a new workbook and select the active sheet
         workbook = Py_Excel.Workbook()  
+        
         
         
         if creating_New_file:
@@ -943,6 +944,8 @@ class Test_Drivers(Data_Saver):
             Default_iteration +=1
     
 
+
+
 class Execution(Test_Drivers):
             
     def Run_Iperftool(self,wifi):
@@ -997,6 +1000,8 @@ class Execution(Test_Drivers):
                 logging.info(f"[Run_Iperftool] {wifi} Tx Test Result is Not Good ")
                 return  False
                                         
+                 
+    
 
 
 # Execution Starts Here  
@@ -1044,7 +1049,10 @@ def main():
                 logging.info('[main] Established connection Closed Sucessfully')
                 
                 return False
-       
+
+           
+        
+        
         else:
             iPerf.Secondary_Logs_Reciever()
 
@@ -1053,7 +1061,10 @@ def main():
             logging.info('[main] Established connection Closed Sucessfully')
             
             return False        
-                               
+                
+
+                    
+                                
     else:
         print("Failed to Establish Connection  ")
         logging.info('[main] Failed to Establish Connection')        
@@ -1064,7 +1075,41 @@ def main():
         iPerf.socket_conn.close()    
 
 
+
+
+
+
+
 if __name__ == "__main__":
 
     # Call the main function
     main()
+   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
