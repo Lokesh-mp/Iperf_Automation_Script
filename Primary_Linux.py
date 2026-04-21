@@ -52,7 +52,7 @@ class iPerf2:
         self.Ipv4_adress= socket.gethostbyname(host)
 
         # Ipfer tool path
-        self.Iperf2_tool_path = os.path.join( self.current_working_directory , r"Iperf_Tool\iperf.exe")
+        self.Iperf2_tool_path = os.path.join( self.current_working_directory , r"Iperf_Tool/iperf")
 
         if not os.path.exists(self.Iperf2_tool_path):
             print("\n\n\t Iperf Tool Not Exist ....!!!\n\n")

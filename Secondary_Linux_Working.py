@@ -47,6 +47,7 @@ class Configuration:
             self.Secondary_Script_log_filename = f'./Logs/Secondary Script {self.DUT_Type} {self.Test_type} {self.Current_time.now().strftime("%d_%b_%Y__%M-%M-%S")} Logs'
             self.Device_Logs_File_Name = f"./Logs/{self.DUT_Type} {self.Test_type} {self.Current_time.now().strftime(self.time_format)} Logs"
 
+            
             self.UserInput.extend([self.Distance,self.DUT_Type,self.Test_type,self.Duration,self.Bandwidth_Range])
 
 
@@ -122,21 +123,27 @@ class Configuration:
         #  
 
             try:
-                print("\n\tSelect Proper COM Ports ")
+                import os as os_module
                 
-                if self.ports != []:
-
-                    #List All available ports
-                    for port in sorted(self.ports):
-                            
-                        print(f'\n{port}')
-
-                else :
-                    # Return if there is No Com Port available
-                    print("\n\tNo COM Ports available !!!!\n")
-                    return False
-
-                self.Com_Port = str(input("\n>> "))
+                # Check for environment variable first (for testing)
+                env_port = os_module.environ.get('DUT_COM_PORT')
+                if env_port and os_module.path.exists(env_port):
+                    self.Com_Port = env_port
+                    print(f"\n\tUsing COM Port from environment: {self.Com_Port}\n")
+                else:
+                    print("\n\tSelect Proper COM Ports ")
+                    
+                    if self.ports != []:
+                        #List All available ports
+                        for port in sorted(self.ports):
+                            print(f'\n{port}')
+                    else:
+                        print("\n\tNo standard COM Ports available, accepting manual input")
+                    
+                    self.Com_Port = str(input("\nEnter COM Port path (e.g., /dev/ttyUSB0, /dev/pts/5): "))
+                    if not self.Com_Port.strip():
+                        print("\n\tNo COM Port provided!\n")
+                        return False
 
                 # configure port number and Baudrate 
                 self.DUT_Ser = serial.Serial(self.Com_Port,baudrate=115200,timeout=1) 
@@ -736,11 +743,7 @@ class Test_Driver:
 
                     if Read_datagrams:
 
-                        Datagram_found = re.search(self.DataGrams_Pattern_1, Output)
-
-                
-
-                        if Datagram_found :
+                        if (Datagram_found := re.search(self.DataGrams_Pattern_1, Output)) :
 
                             #DataGrams=Datagram_found.groups()
                             logging.info(f'[Test_Driver.Result_Analyser] {Datagram_found[0]}')
@@ -748,24 +751,18 @@ class Test_Driver:
                             self.Iteration_Output.append(Datagram_found[0])
 
 
-                        elif re.search(self.DataGrams_Pattern_2, Output) :
-
-                            Datagram_found=re.search(self.DataGrams_Pattern_2, Output)
+                        elif (Datagram_found := re.search(self.DataGrams_Pattern_2, Output)) :
 
                             logging.info(f'[Test_Driver.Result_Analyser] {Datagram_found[0]}')
                             self.Iteration_Output.append(Datagram_found[0])
 
-                        elif re.search(self.DataGrams_Pattern_3, Output) :
-
-                            Datagram_found=re.search(self.DataGrams_Pattern_3, Output)
+                        elif (Datagram_found := re.search(self.DataGrams_Pattern_3, Output)) :
 
                             logging.info(f'[Test_Driver.Result_Analyser] {Datagram_found[0]}')
                             self.Iteration_Output.append(Datagram_found[0]) 
 
 
-                        elif re.search(self.DataGrams_Pattern_4, Output) :
-
-                            Datagram_found=re.search(self.DataGrams_Pattern_4, Output)
+                        elif (Datagram_found := re.search(self.DataGrams_Pattern_4, Output)) :
 
                             logging.info(f'[Test_Driver.Result_Analyser] {Datagram_found[0]}')
                             self.Iteration_Output.append(Datagram_found[0])
