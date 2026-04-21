@@ -59,8 +59,12 @@ class iPerf2:
 
 
         # Create Script_Logs Folder if not present
-        if not os.path.exists("Logs"):
-            os.makedirs("Logs")
+        if not os.path.exists("logs"):
+            os.makedirs("logs")
+        
+        # Create tmp Folder if not present
+        if not os.path.exists("tmp"):
+            os.makedirs("tmp")
     
     def Socket_Establisher(self):
 
@@ -111,7 +115,7 @@ class iPerf2:
 
          # Configure the logging settings
         try:
-            logging.basicConfig(filename=f'Logs/Primary {self.DUT_type} {self.Test_type} {self.Current_time}.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+            logging.basicConfig(filename=f'logs/Primary {self.DUT_type} {self.Test_type} {self.Current_time}.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
         except:
             print("\n Logs Directory not found to insert Log file\n")
             return False
@@ -232,7 +236,7 @@ class Data_Saver(iPerf2):
             if "RX_Test" in Test_type:
                 # print(" inside load rx")
                 logging.info("[Create_Result_Excel] loading Output excel for RX Test ")
-                workbook = Py_Excel.load_workbook(f'{Test_output_Xl_file}.xlsx')
+                workbook = Py_Excel.load_workbook(f'results/{Test_output_Xl_file}.xlsx')
                 # Access the new sheet
                 rx_sheet = workbook['RX_Test']
                 
@@ -240,7 +244,7 @@ class Data_Saver(iPerf2):
                 # print(" inside load tx")
                 logging.info("[Create_Result_Excel] loading Output excel for TX Test ")
                 # Open the Excel file
-                workbook = Py_Excel.load_workbook(f'{Test_output_Xl_file}.xlsx')
+                workbook = Py_Excel.load_workbook(f'results/{Test_output_Xl_file}.xlsx')
                 # Access the new sheet
                 tx_sheet = workbook['TX_Test']
                 
@@ -248,7 +252,7 @@ class Data_Saver(iPerf2):
                 # print(" inside load else")
                 logging.info("[Create_Result_Excel] loading Output excel for Full Test ")
                 # Open the Excel file
-                workbook = Py_Excel.load_workbook(f'{Test_output_Xl_file}.xlsx')
+                workbook = Py_Excel.load_workbook(f'results/{Test_output_Xl_file}.xlsx')
                 rx_sheet = workbook['RX_Test']
                 tx_sheet = workbook['TX_Test']
 
@@ -343,7 +347,7 @@ class Data_Saver(iPerf2):
         
         
         # Save the workbook
-        workbook.save(f'{Test_output_Xl_file}.xlsx')
+        workbook.save(f'results/{Test_output_Xl_file}.xlsx')
         
         self.Recived_test_output.clear()
         logging.info('[Create_Result_Excel] Data Saved in the Excel file and cleared Test output')
@@ -397,7 +401,7 @@ class Test_Drivers(Data_Saver):
 
         super().__init__()
                 
-        
+        self.check_RSSI = True
 
         self.TX_Test_Datagrams=[]
         self.DefaultTXDatagrams = ["None","None","None"]
@@ -525,7 +529,8 @@ class Test_Drivers(Data_Saver):
             
             
             logging.info(f'[TX_Test] Opening iperf_output file in Writing Mode to write {Min_Bandwidth} Mbits Bandwidth  Iperf terminal Logs')
-            output_file = open("iperf_output.txt", "w")
+            output_file = open("tmp/iperf_output.txt", "w")
+            
             #output_error_file = open("iperf_output_error.txt", "w")
             
             # Run Server command in Primary
@@ -534,20 +539,26 @@ class Test_Drivers(Data_Saver):
         
             # Sendind client command to Secondary system to start TX test    
 
-            self.socket_conn.send(f'iperf -c {self.Ipv4_adress} -u -b {Min_Bandwidth}M -i 1 -t {self.Test_Duration} '.encode())
-            logging.info(f'[TX_Test] Sent iperf -c {self.Ipv4_adress} -u -b {Min_Bandwidth}M -i 1 -t {self.Test_Duration}  command to Secondary system to start {Min_Bandwidth}M Bandwidth TX test')
+            # self.socket_conn.send(f'iperf -c {self.Ipv4_adress} -u -b {Min_Bandwidth}M -i 1 -t {self.Test_Duration} '.encode())
+            # logging.info(f'[TX_Test] Sent iperf -c {self.Ipv4_adress} -u -b {Min_Bandwidth}M -i 1 -t {self.Test_Duration}  command to Secondary system to start {Min_Bandwidth}M Bandwidth TX test')
             
-            time.sleep(3)
-            # Sending Current test Bandwidth           
-            self.socket_conn.send(str(Min_Bandwidth).encode())
-            logging.info(f'[TX_Test] Sent {Min_Bandwidth} Mbits Bandwidth for validation')
-        
-            if Min_Bandwidth == 5 and self.Test_type == "TX_Test":
+            # time.sleep(6)
+            # # Sending Current test Bandwidth           
+            # self.socket_conn.send(str(Min_Bandwidth).encode())
+            # logging.info(f'[TX_Test] Sent {Min_Bandwidth} Mbits Bandwidth for validation')
+
+
+            send_data=[f'iperf -c {self.Ipv4_adress} -u -b {Min_Bandwidth}M -i 1 -t {self.Test_Duration} ',str(Min_Bandwidth)]
+            self.socket_conn.send(json.dumps(send_data).encode())
+
+            #if self.check_RSSI and self.Test_type == "TX_Test":
+            if self.check_RSSI:
                 #getiing RSSI Value  
                 Before_Test_RSSI_Value = self.socket_conn.recv(1024).decode()
                 print(f" {wifi} RSSI Value {Before_Test_RSSI_Value}")
                 self.RSSI_Values.update({f'Before Test':Before_Test_RSSI_Value})
                 logging.info(f'[TX_Test] {wifi} Before Starting Test the RSSI Value is {Before_Test_RSSI_Value}')
+                self.check_RSSI = False
                    
  
             print(f"\n{wifi} Transmission Test Started for {Min_Bandwidth} Mbits\n")
@@ -576,7 +587,7 @@ class Test_Drivers(Data_Saver):
             
             
             # Read the contents of the output file        
-            with open("iperf_output.txt", "r") as file:
+            with open("tmp/iperf_output.txt", "r") as file:
                 output = file.readlines()
 
                 for line in output:
@@ -696,13 +707,15 @@ class Test_Drivers(Data_Saver):
             logging.info('[TX_Test] Waiting for the confirmation to stop test')
             
            
-            if Min_Bandwidth  == Iterator and self.Test_type == "TX_Test" :
-                    self.Create_Result_Excel(self.Recived_test_output,self.Test_type,True,Min_Bandwidth)
+            if Min_Bandwidth  == Iterator and self.Test_type == "TX_Test" and wifi == '2.4Ghz' :
                     logging.info('[TX_Test] Calling Create Excel function to create new Excel file')
+                    self.Create_Result_Excel(self.Recived_test_output,self.Test_type,True,Min_Bandwidth)
+                    
                     Min_Bandwidth += Iterator
             elif Test_continue and Min_Bandwidth < Max_Bandwidth:
-                    self.Create_Result_Excel(self.Recived_test_output,self.Test_type,False,Min_Bandwidth)
                     logging.info('[TX_Test] Calling Create Excel function to add in the exist Excel file')
+                    self.Create_Result_Excel(self.Recived_test_output,self.Test_type,False,Min_Bandwidth)
+                   
                     Min_Bandwidth += Iterator
             else:
 
@@ -720,6 +733,9 @@ class Test_Drivers(Data_Saver):
                 print(f"{wifi} TX test RSSI Value ",After_Test_RSSI_Value)
                 self.RSSI_Values.update({f'After Test':After_Test_RSSI_Value})
                 logging.info(f'[TX_Test] {wifi} After Completing the Test the RSSI Value is {After_Test_RSSI_Value}')
+
+                logging.info(f'[TX_Test] changed check_RSSI to True')
+                self.check_RSSI = True
                 
                 self.Create_Result_Excel(self.Recived_test_output,self.Test_type,False,Min_Bandwidth)
                                         
@@ -843,8 +859,8 @@ class Test_Drivers(Data_Saver):
                 
                 if Min_Bandwidth < Max_Bandwidth:
 
-                    if Min_Bandwidth  == Iterator:
-                        self.Create_Result_Excel(self.Recived_test_output,self.Test_type,True,Min_Bandwidth)
+                    if Min_Bandwidth  == Iterator and wifi == "2.4Ghz":
+                        self.Create_Result_Excel(self.Recived_test_output,self.Test_type,creating_New_file=True,Current_Test_Bandwidths=Min_Bandwidth)
 
                     else:
                         self.Create_Result_Excel(self.Recived_test_output,self.Test_type,False,Min_Bandwidth)
@@ -877,12 +893,12 @@ class Test_Drivers(Data_Saver):
 
                                   
 
-                    if self.Test_type == "Full_Test":
-                            TX_Before_Test_RSSI_Value = After_Test_RSSI_Value 
+                    # if self.Test_type == "Full_Test":
+                    #         TX_Before_Test_RSSI_Value = After_Test_RSSI_Value 
 
-                            print(f" {wifi} RSSI Value {TX_Before_Test_RSSI_Value}")
-                            self.RSSI_Values.update({f'Before Test':TX_Before_Test_RSSI_Value})
-                            logging.info(f'[RX_Test] {wifi} Before Starting Test the RSSI Value is {TX_Before_Test_RSSI_Value}')        
+                    #         print(f" {wifi} RSSI Value {TX_Before_Test_RSSI_Value}")
+                    #         self.RSSI_Values.update({f'Before Test':TX_Before_Test_RSSI_Value})
+                    #         logging.info(f'[RX_Test] {wifi} Before Starting Test the RSSI Value is {TX_Before_Test_RSSI_Value}')        
 
                           
                     return True
@@ -897,7 +913,7 @@ class Test_Drivers(Data_Saver):
         
         
         while True :    
-            output_file = open("iperf_output.txt", "w")
+            output_file = open("tmp/iperf_output.txt", "w")
             logging.info('[Client_cmd_execution] Output File Created to store Iperf Terminal logs')
 
             Iperf_Exe_Terminal=subprocess.Popen(Client_cmd, shell=False, stdout=output_file)
@@ -922,7 +938,7 @@ class Test_Drivers(Data_Saver):
             logging.info('[Client_cmd_execution] Reading All the Iperf terminal Output captured ')
             logging.info('[Client_cmd_execution] Reading iperf_output text file to retriew Iperf terminal logs' )
             # Read the contents of the output file
-            with open("iperf_output.txt", "r") as file:
+            with open("tmp/iperf_output.txt", "r") as file:
                 output = file.read()
                 logging.info(f'[Client_cmd_execution] {output}')
                 

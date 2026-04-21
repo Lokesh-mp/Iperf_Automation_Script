@@ -392,16 +392,18 @@ class Configuration:
 
 
         if not re_checking:
+
+            # Wifi_Config = f'LUCI_local 125 {self.SSID},{self.PWD}'
              
-            Wifi_Config=f'''wpa_cli \n
-            remove_network all \n
-            scan \n
-            add_network \n
-            set_network 0 ssid "{self.SSID}"  \n
-            set_network 0 psk "{self.PWD}"     \n
-            enable_network 0    \n
-            save config \n
-                        '''
+            # # Wifi_Config=f'''wpa_cli \n
+            # # remove_network all \n
+            # # scan \n
+            # # add_network \n
+            # # set_network 0 ssid "{self.SSID}"  \n
+            # # set_network 0 psk "{self.PWD}"     \n
+            # # enable_network 0    \n
+            # # save config \n
+            # #             '''
 
 
             self.DUT_Ser.write(f'\rLUCI_local 125 "{self.SSID}","{self.PWD}"\n'.encode("utf-8") )
@@ -410,8 +412,8 @@ class Configuration:
             Decoded_data = self.DUT_Ser.readline().decode("utf-8", errors="ignore")
 
             if "LUCI_local not found" in Decoded_data:
-                self.DUT_Ser.write(Wifi_Config.encode("utf-8") )
-                logging.info(f"[Configuration.Network_configuration] {Wifi_Config}  command written to connect wifi")
+                self.DUT_Ser.write(f'\rLUCI_local 125 "{self.SSID}","{self.PWD}"\n'.encode("utf-8") )
+                logging.info(f"[Configuration.Network_configuration]   command written to connect wifi")
 
             try:
 
@@ -476,6 +478,12 @@ class Configuration:
                 except UnicodeDecodeError as e:
                         
                         print("Error decoding data:", e)
+                        logging.info(f'[Configuration.Network_configuration] exception occured {e} ') 
+                        return False
+
+                except serial.serialutil.SerialException as e:
+                    logging.info(f'[Configuration.Network_configuration] exception occured {e} ') 
+                    return False
 
 
 
@@ -497,13 +505,15 @@ class Test_Driver:
 
         self.Iteration_Output = []
 
+        self.Check_RSSI_value = True
 
+        self.average_RSSI = r"AVG_RSSI=\-[\w_.]+"
         # Search for self.Mbits Data
-        self.Mbits = r"\d+\.\d+\sMbits"
+        self.Mbits = r"[\w._]+\sMbits"
 
 
         # Search for Kbits Data
-        self.kbits = r"\d+\sKbits" 
+        self.kbits =  r"[\w._]+\sKbits" 
 
         # DataGrams Finding Patterns
         
@@ -518,9 +528,14 @@ class Test_Driver:
         
         global  Current_Test_Bandwidth
 
+        
+        
+
 
         # verfiying test TX or RX
         while True:
+
+
 
             # print(" inside testing ")
     
@@ -529,6 +544,7 @@ class Test_Driver:
             print("Received_Data ",Received_Data)
             logging.info(f"[Test_Driver.Testing] Received_Data in testing function == > {Received_Data}")
 
+
             if 'iperf -s' in Received_Data:
 
                 logging.info('[Test_Driver.Testing] Inside Server command')
@@ -536,52 +552,61 @@ class Test_Driver:
 
                 # if the test is RX then enter the server command in serial comm
                 self.Server_communication (Received_Data)
-                logging.info('[Test_Driver.Testing] exiting')
-                print('[Test_Driver.Testing] exiting')
-                return
 
-                #  print("Test_type ",Test_type)
-                # if  self.config.Test_type != "Full_Test":
+                # time.sleep(6)
+                # clearing Input Buffer
+                self.config.DUT_Ser.reset_input_buffer()
+                # Reading Serail for RSI Value
 
-                #     logging.info('[Test_Driver.Testing] returning True from server if the Test is not Full type')
-                #     print(" Calling serial func to get rssi value")
-                #     RSSI_Value = self.Serial_Data_Reading(RSSI_Value_check=True,client_cmd = False,Received__Data=None)
-                #     logging.info('[Test_Driver.Testing] Calling serail function to get RSSI Value after 2.4Ghz test')
-                #     #sending RSSI value
-                #     self.config.Communication_Service.send(str(RSSI_Value).encode())
-                #     logging.info('[Test_Driver.Testing] Sent RSSI Value ')
-
-                #     print(" returning from testing")
-                #     return 
+                logging.info('[Test_Driver.Testing] Calling serail function to get RSSI Value after test')
+                RSSI_Value = self.Serial_Data_Reading(RSSI_Value_check=True,client_cmd = False,Received__Data=None)
                 
-                # else:
-                    
-                #     RSSI_Value = self.Serial_Data_Reading(RSSI_Value_check=True,client_cmd = False,Received__Data=None)
-                #     logging.info('[Test_Driver.Testing] Calling serail function to get RSSI Value after test')
-                #     #sending RSSI Values
-                #     self.config.Communication_Service.send(str(RSSI_Value).encode())
-                #     logging.info('[Test_Driver.Testing] Sent RSSI Value ')
                 
-                    
+                #sending RSSI Values
+                self.config.Communication_Service.send(str(RSSI_Value).encode())
+                logging.info('[Test_Driver.Testing] Sent After test RSSI Value ')
+
+                logging.info('[Test_Driver.Testing] Check_RSSI_value ENV made True ')
+                self.Check_RSSI_value = True
+                
+           
+                if self.config.Test_type != "Full_Test":
+                    logging.info('[Test_Driver.Testing] exiting')
+                    print('[Test_Driver.Testing] exiting')
+                    return
+               
+
+                 
              
             elif  "iperf -c" in Received_Data:
 
             
                 logging.info('[Test_Driver.Testing] Inside Client command')
 
-                #  Recieving Current Test Bandwidth
-                Current_Test_Bandwidth = float(self.config.Communication_Service.recv(1024).decode()) 
+                data = json.loads(Received_Data)
+                Current_Test_Bandwidth= data[1]
+                Received_Data = data[0]
+                logging.info(f'[Test_Driver.Testing] After spliting, Current_Test_Bandwidth  {Current_Test_Bandwidth} Received_Data { Received_Data} ')
+                
                 print("Current_Test_Bandwidth ",Current_Test_Bandwidth)        
                 logging.info(f'[Test_Driver.Testing] current test bandwidth recieved {Current_Test_Bandwidth}')
+                
+                #  Recieving Current Test Bandwidth
+                # Current_Test_Bandwidth = float(self.config.Communication_Service.recv(1024).decode()) 
+                # print("Current_Test_Bandwidth ",Current_Test_Bandwidth)        
+                # logging.info(f'[Test_Driver.Testing] current test bandwidth recieved {Current_Test_Bandwidth}')
     
 
-                if Current_Test_Bandwidth == 5.0 and self.config.Test_type == "TX_Test":
+                # if Current_Test_Bandwidth ==   and self.config.Test_type == "TX_Test":
+                if self.Check_RSSI_value :
 
-                    RSSI_Value = self.Serial_Data_Reading(RSSI_Value_check=True,client_cmd = False,Received__Data=None)
                     logging.info('[Test_Driver.Testing] Calling serail function to get RSSI Value after test')
+                    RSSI_Value = self.Serial_Data_Reading(RSSI_Value_check=True,client_cmd = False,Received__Data=None)
+                    
                     #sending RSSI Values
                     self.config.Communication_Service.send(str(RSSI_Value).encode())
                     logging.info('[Test_Driver.Testing] Sent RSSI Value ')
+                    self.Check_RSSI_value = False
 
 
 
@@ -762,7 +787,7 @@ class Test_Driver:
         #print("Iteration_Output ",self.Iteration_Output) 
         logging.info(f"[Test_Driver.Result_Analyser] Iteration_Output {self.Iteration_Output}")
 
-        time.sleep(5)
+        time.sleep(3)
 
         # sending # iteration Data with Average Data
         self.config.Communication_Service.send(json.dumps(self.Iteration_Output).encode("utf-8"))
@@ -825,11 +850,12 @@ class Test_Driver:
                     
                     RSSI_Value_Found=False
 
+                  
+
+                    logging.info(f"[Test_Driver.Serial_Data_Reading] Finding RSSI Value")
                     # Sending Scan Command and waiting till it gets response from AP
-                    self.config.DUT_Ser.write(f"wpa_cli scan\n".encode("utf-8") )
-                    logging.info(f"[Test_Driver.Serial_Data_Reading] Wi-Fi Scan Initiated")
-                    time.sleep(10)
-                    self.config.DUT_Ser.write(f"wpa_cli scan_results\n".encode("utf-8") )
+                    self.config.DUT_Ser.write(f"wpa_cli signal_poll\n".encode("utf-8") )
+
 
                     start_time = time.time()
                     end_time = start_time + 10
@@ -851,25 +877,18 @@ class Test_Driver:
                                     logging.info(f"[Test_Driver.Serial_Data_Reading] RSSI - {Decoded_data}")
                                     # print(Decoded_data)
 
-                                    if self.config.SSID in Decoded_data:
-                                        
-                                        Decoded_data=Decoded_data.split("\t")
+                                    Found = re.search(self.average_RSSI,Decoded_data)
 
-                                        logging.info(f"[Test_Driver.Serial_Data_Reading]  After split Decoded data {Decoded_data}")
-                                        if len(Decoded_data) == 5:
-                                            if self.config.SSID == Decoded_data[4].strip():
-                                                                                            
 
-                                                        logging.info(f"[Test_Driver.Serial_Data_Reading] RSSI value found - {Decoded_data[2]}")
-                                                        print(f"RSSI value found - {Decoded_data[2]}")
-                                                        RSSI_Value.append(Decoded_data[2])
-                                                        logging.info(f"[Test_Driver.Serial_Data_Reading] Current RSSI value added to RSSI Value list")
-                                                        RSSI_Value_Found=True
-                                                        break
-
-                                    
-
-                                            
+                                    if Found:
+                                        logging.info(f"[Test_Driver.Serial_Data_Reading] RSSI value found - {Decoded_data}")
+                                                        
+                                        current_RSSI = Found.group().split("=")[1]
+                                        logging.info(f"[Test_Driver.Serial_Data_Reading] Current RSSI value added to RSSI Value list")
+                                        RSSI_Value.append(current_RSSI)
+                                        RSSI_Value_Found=True
+                                        break                                                   
+                                                 
 
                                 except UnicodeDecodeError :
                                     
@@ -910,8 +929,9 @@ class Test_Driver:
                 if client_cmd and Send_client_request:
                         time.sleep(10)
                         #  writing client  command in serial
+                        logging.info('[Test_Driver.Serial_Data_Reading] writing client command ')
                         self.config.DUT_Ser.write(f"{Received__Data} \n".encode("utf-8") )
-                        logging.info('[Test_Driver.Serial_Data_Reading] writing client command ') 
+                         
 
                         # Making Send_client_request False to avoid resending request untill completes
                         Send_client_request = False 
@@ -967,7 +987,8 @@ class Test_Driver:
 
                                     self.config.DUT_Ser.reset_input_buffer()
                                     self.config.DUT_Ser.reset_output_buffer()
-                                    time.sleep(5)
+                                    logging.info(f"[Test_Driver.Serial_Data_Reading] input and output buffer cleared")
+                                    # time.sleep(5)
                                     
                                     iteration += 1
                                     logging.info(f"[Test_Driver.Serial_Data_Reading]  Test iteration increased")
@@ -990,6 +1011,7 @@ class Test_Driver:
 
                                     elif   client_cmd and len(Iteration_Output) <= 3 :
                                        
+                                        logging.info(fr"[Test_Driver.Serial_Data_Reading]  ctlr + c pressed [b'\x03']")
                                         self.config.DUT_Ser.write(b'\x03')
                                         break
 
@@ -1111,7 +1133,7 @@ class Test_Driver:
 
 
         # Reading Serail for RSI Value
-        logging.info(f'[Test_Driver.Server_communication] Calling Serial_Data_Reading function to check RSSI Values')
+        logging.info(f'[Test_Driver.Server_communication] Calling Serial_Data_Reading function to check RSSI Values before test')
         RSSI_Value =  self.Serial_Data_Reading(RSSI_Value_check=True,client_cmd = False,Received__Data=None)
         self.config.Communication_Service.send(str(RSSI_Value).encode())
         logging.info(f'[Test_Driver.Server_communication] Sending RSSI Values')
@@ -1255,6 +1277,7 @@ def main():
         #sending RSSI Values
         config.Communication_Service.send(str(RSSI_Value).encode())
         logging.info('[main] Sent 2.4Ghz RSSI Value ')
+        Driver.Check_RSSI_value = True
     
     
 
@@ -1297,7 +1320,10 @@ def main():
             # Communication End's Here By Closing established Socket.
             config.Communication_Service.close()
 
-
+    else:
+        Driver.Logs_Sender(config.Secondary_Script_log_filename,config.Device_Logs_File_Name)
+        # Communication End's Here By Closing established Socket.
+        config.Communication_Service.close()
 
 
 
